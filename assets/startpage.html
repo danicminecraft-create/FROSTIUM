@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frostium</title>
+<style>
+/* Масштаб --u: 1 «пиксель сцены» (1636×788) */
+:root{--u:calc(min(100vw, 100vh * 1636 / 788) / 1636);--ink:#0b2e55}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0c4ba3}
+body::before{content:"";position:fixed;inset:-30px;background:url(scene.jpg) center/cover;filter:blur(26px) brightness(.9)}
+.stage{position:fixed;inset:0;margin:auto;width:calc(1636 * var(--u));height:calc(788 * var(--u));
+  font-family:"Segoe UI","Trebuchet MS",sans-serif;box-shadow:0 10px 60px rgba(0,30,90,.55)}
+.skin{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.hit,.box,.chips{position:absolute;left:calc(var(--x) * var(--u));top:calc(var(--y) * var(--u));
+  width:calc(var(--w) * var(--u));height:calc(var(--h) * var(--u))}
+.hit{display:block;padding:0;border:0;cursor:pointer;background:transparent;border-radius:calc(var(--r,8) * var(--u));transition:background .15s,box-shadow .15s}
+.hit:hover{background:rgba(255,255,255,.22);box-shadow:0 0 calc(16 * var(--u)) rgba(255,255,255,.75)}
+.hit:active{background:rgba(0,50,140,.2)}
+.hit:focus-visible{outline:2px solid rgba(255,255,255,.95);outline-offset:2px}
+.box{margin:0;border-radius:calc(8 * var(--u))}
+.box input{position:absolute;inset:0;width:100%;height:100%;padding:0 0 0 calc(5 * var(--u));border:0;outline:0;
+  background:transparent;color:var(--ink);font-family:inherit;font-size:calc(26 * var(--u))}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;align-content:flex-start;gap:calc(12 * var(--u))}
+.chips a{display:inline-block;padding:calc(7 * var(--u)) calc(20 * var(--u));border-radius:calc(22 * var(--u));
+  font-size:calc(19 * var(--u));color:var(--ink);text-decoration:none;
+  background:linear-gradient(rgba(255,255,255,.8),rgba(190,226,250,.5));border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 4px 14px rgba(8,64,150,.3),inset 0 1px 0 #fff}
+.chips a:hover{box-shadow:0 0 18px #fff,inset 0 1px 0 #fff}
+</style>
+</head>
+<body>
+<main class="stage">
+  <img class="skin" src="scene.jpg" alt="Стартовая страница Frostium" draggable="false">
+  <h1 class="sr">Frostium</h1>
+
+  <form class="box" id="search" style="--x:414;--y:360;--w:870;--h:46" autocomplete="off">
+    <input id="q" type="text" aria-label="Поиск в Frostium" spellcheck="false" autofocus>
+  </form>
+
+  <a class="hit" href="https://www.temu.com"      style="--x:410;--y:450;--w:100;--h:98;--r:18" aria-label="Temu"></a>
+  <a class="hit" href="https://www.hamleys.com"   style="--x:531;--y:450;--w:100;--h:98;--r:18" aria-label="Hamleys"></a>
+  <a class="hit" href="https://www.adidas.com"    style="--x:652;--y:450;--w:100;--h:98;--r:18" aria-label="adidas"></a>
+  <a class="hit" href="https://www.wikipedia.org" style="--x:773;--y:450;--w:99;--h:98;--r:18"  aria-label="Wikipedia"></a>
+  <a class="hit" href="https://www.youtube.com"   style="--x:894;--y:450;--w:98;--h:98;--r:18"  aria-label="YouTube"></a>
+  <a class="hit" href="https://www.reddit.com"    style="--x:1015;--y:450;--w:100;--h:98;--r:18" aria-label="Reddit"></a>
+  <button class="hit" id="addSite" type="button"  style="--x:1137;--y:450;--w:98;--h:98;--r:18" aria-label="Добавить сайт"></button>
+
+  <nav class="chips" id="chips" aria-label="Мои сайты" style="--x:345;--y:648;--w:962;--h:50"></nav>
+</main>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const toUrl = (text) => {
+    const t = text.trim();
+    if (!t) return null;
+    if (/^https:\/\//i.test(t)) return t;
+    if (/^http:\/\//i.test(t)) return 'https://' + t.slice(7);
+    if (!/\s/.test(t) && /^[^\s.]+\.[^\s]{2,}$/.test(t)) return 'https://' + t;
+    return 'https://duckduckgo.com/?q=' + encodeURIComponent(t);
+  };
+  $('#search').addEventListener('submit', (e) => { e.preventDefault(); const u = toUrl($('#q').value); if (u) location.assign(u); });
+
+  const KEY = 'frostium.sites', chips = $('#chips');
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } };
+  const save = (l) => { try { localStorage.setItem(KEY, JSON.stringify(l)); } catch {} };
+  const parseSite = (raw) => {
+    try {
+      const u = new URL(/^[a-z]+:\/\//i.test(raw) ? raw : 'https://' + raw);
+      if (!/^https?:$/.test(u.protocol) || !u.hostname.includes('.')) return null;
+      u.protocol = 'https:';
+      return { url: u.href, host: u.hostname.replace(/^www\./, '') };
+    } catch { return null; }
+  };
+  const chip = (s) => { const a = document.createElement('a'); a.href = s.url; a.textContent = s.host; chips.append(a); };
+  load().forEach(chip);
+  $('#addSite').addEventListener('click', () => {
+    const raw = prompt('Адрес сайта, например example.com');
+    if (!raw) return;
+    const site = parseSite(raw.trim());
+    if (!site) { alert('Не удалось разобрать адрес. Введите домен, например example.com.'); return; }
+    chip(site); save([...load(), site]);
+  });
+})();
+</script>
+</body>
+</html>
